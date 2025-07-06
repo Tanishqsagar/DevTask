@@ -1,72 +1,3 @@
-// import { useState, useEffect } from "react";
-
-// const Tasks=()=>{
-//     const [tasks, setTasks] = useState([]);
-
-//     useEffect(() => {
-//         // Fetch tasks from the server or local storage
-//         const data=JSON.parse(localStorage.getItem('devtasks')) || [];
-//         setTasks(data); 
-//     }, []);
-
-//     const updateLocal = (updated) => {
-//         localStorage.setItem("devtasks", JSON.stringify(updated));
-//         setTasks(updated);
-//     };
-
-//     const handleDelete = (id) => {
-//         const updated = tasks.filter((task) => task.id !== id);
-//         updateLocal(updated);
-//     };
-
-//     const toggleDone = (id) => {
-//         const updated = tasks.map((task) =>
-//         task.id === id ? { ...task, done: !task.done } : task
-//         );
-//         updateLocal(updated);
-//     };
-
-//     return (
-//         <div>
-//             <h2>Your Tasks: </h2>
-//             {tasks.length === 0 ? (
-//                 <p>No tasks available. Please add some tasks.</p> 
-//                 ) : ( 
-//                     <ul className="space-y-4">
-//                         {tasks.map((task) => (
-//                             <li key={task.id} className="p-4 bg-white rounded shadow flex justify-between">
-//                             <div>
-//                                 <h3 className="font-semibold text-lg">{task.title}</h3>
-//                                 <p className="text-sm text-gray-500">{task.tag} • {task.deadline}</p>
-//                             </div>
-//                             <div className="flex gap-2">
-//                                 <button
-//                                     onClick={() => toggleDone(task.id)}
-//                                    className={`px-2 py-1 rounded text-sm ${
-//                                                 task.done
-//                                                 ? "bg-yellow-400 text-white"
-//                                                 : "bg-green-500 text-white"
-//                                             }`}
-//                                 >
-//                                     {task.done ? "Undo" : "Done"}
-//                                 </button>
-//                                 <button
-//                                     onClick={() => handleDelete(task.id)}
-//                                     className="px-2 py-1 rounded text-sm bg-red-500 text-white"
-//                                     >
-//                                     Delete
-//                                 </button>
-//                             </div>
-//                             </li>
-//                         ))}
-//                     </ul>
-//             )}
-//         </div>
-//     )
-// }
-
-// export default Tasks;
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -75,6 +6,12 @@ const Tasks = () => {
   const [tasks, setTasks] = useState([])
   const [filter, setFilter] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
+  const [editingTask, setEditingTask] = useState(null)
+  const [editForm, setEditForm] = useState({
+    title: "",
+    tag: "",
+    deadline: "",
+  })
 
   useEffect(() => {
     // Fetch tasks from the server or local storage
@@ -95,6 +32,36 @@ const Tasks = () => {
   const toggleDone = (id) => {
     const updated = tasks.map((task) => (task.id === id ? { ...task, done: !task.done } : task))
     updateLocal(updated)
+  }
+
+  const startEdit = (task) => {
+    setEditingTask(task.id)
+    setEditForm({
+      title: task.title,
+      tag: task.tag,
+      deadline: task.deadline,
+    })
+  }
+
+  const cancelEdit = () => {
+    setEditingTask(null)
+    setEditForm({ title: "", tag: "", deadline: "" })
+  }
+
+  const saveEdit = () => {
+    if (!editForm.title.trim() || !editForm.deadline) {
+      alert("Please fill all fields")
+      return
+    }
+
+    const updated = tasks.map((task) =>
+      task.id === editingTask
+        ? { ...task, title: editForm.title, tag: editForm.tag, deadline: editForm.deadline }
+        : task,
+    )
+    updateLocal(updated)
+    setEditingTask(null)
+    setEditForm({ title: "", tag: "", deadline: "" })
   }
 
   const getTagStyles = (tag) => {
@@ -227,7 +194,7 @@ const Tasks = () => {
                   onClick={() => setFilter(filterOption.key)}
                   className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
                     filter === filterOption.key
-                      ? `bg-${filterOption.color}-500 text-gray-300 shadow-lg shadow-${filterOption.color}-500/30`
+                      ? `bg-${filterOption.color}-500 text-white shadow-lg shadow-${filterOption.color}-500/30`
                       : `text-${filterOption.color}-600 hover:bg-${filterOption.color}-50 border border-${filterOption.color}-200`
                   }`}
                 >
@@ -261,68 +228,143 @@ const Tasks = () => {
             {filteredTasks.map((task) => (
               <div
                 key={task.id}
-                className={`bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1 ${
-                  task.done ? "opacity-75" : ""
-                }`}
+                className={`bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-200 ${
+                  editingTask === task.id ? "ring-2 ring-indigo-500 shadow-2xl" : "hover:-translate-y-1"
+                } ${task.done ? "opacity-75" : ""}`}
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  {/* Task Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="text-2xl">{getTagEmoji(task.tag)}</div>
-                      <div className="flex-1">
-                        <h3
-                          className={`text-xl font-semibold mb-2 ${
-                            task.done ? "line-through text-gray-500" : "text-gray-800"
-                          }`}
-                        >
-                          {task.title}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border ${getTagStyles(task.tag)}`}
+                {editingTask === task.id ? (
+                  /* Edit Mode */
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="text-2xl">{getTagEmoji(editForm.tag)}</div>
+                      <h3 className="text-lg font-semibold text-indigo-600">Editing Task</h3>
+                    </div>
+
+                    {/* Edit Form */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
+                        <input
+                          type="text"
+                          value={editForm.title}
+                          onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                          className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-all duration-200"
+                          placeholder="Enter task title..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                          <select
+                            value={editForm.tag}
+                            onChange={(e) => setEditForm({ ...editForm, tag: e.target.value })}
+                            className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-all duration-200"
                           >
-                            {task.tag}
-                          </span>
-                          <span
-                            className={`text-sm font-medium ${
-                              isOverdue(task.deadline) && !task.done
-                                ? "text-red-600"
-                                : task.done
-                                  ? "text-gray-500"
-                                  : "text-gray-600"
-                            }`}
-                          >
-                            📅 {formatDate(task.deadline)}
-                          </span>
+                            <option value="Work">💼 Work</option>
+                            <option value="Personal">🏠 Personal</option>
+                            <option value="Urgent">🚨 Urgent</option>
+                            <option value="Learning">📚 Learning</option>
+                            <option value="Other">📝 Other</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Deadline</label>
+                          <input
+                            type="date"
+                            value={editForm.deadline}
+                            onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
+                            className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-all duration-200"
+                            min={new Date().toISOString().split("T")[0]}
+                          />
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => toggleDone(task.id)}
-                      className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 hover:-translate-y-0.5 ${
-                        task.done
-                          ? "bg-yellow-500 text-white hover:bg-yellow-600 shadow-lg shadow-yellow-500/30"
-                          : "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30"
-                      }`}
-                    >
-                      {task.done ? "↩️ Undo" : "✅ Done"}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="px-4 py-2 rounded-xl font-medium text-sm bg-red-500 text-white hover:bg-red-600 transition-all duration-200 hover:-translate-y-0.5 shadow-lg shadow-red-500/30"
-                    >
-                      🗑️ Delete
-                    </button>
+                    {/* Edit Actions */}
+                    <div className="flex gap-3 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={saveEdit}
+                        className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-green-500/30 transition-all duration-200 hover:-translate-y-0.5"
+                      >
+                        ✅ Save Changes
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="px-6 py-2 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition-all duration-200 hover:-translate-y-0.5"
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* View Mode */
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Task Info */}
+                    <div className="flex-1">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="text-2xl">{getTagEmoji(task.tag)}</div>
+                        <div className="flex-1">
+                          <h3
+                            className={`text-xl font-semibold mb-2 ${
+                              task.done ? "line-through text-gray-500" : "text-gray-800"
+                            }`}
+                          >
+                            {task.title}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium border ${getTagStyles(task.tag)}`}
+                            >
+                              {task.tag}
+                            </span>
+                            <span
+                              className={`text-sm font-medium ${
+                                isOverdue(task.deadline) && !task.done
+                                  ? "text-red-600"
+                                  : task.done
+                                    ? "text-gray-500"
+                                    : "text-gray-600"
+                              }`}
+                            >
+                              📅 {formatDate(task.deadline)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => startEdit(task)}
+                        className="px-4 py-2 rounded-xl font-medium text-sm bg-indigo-500 text-white hover:bg-indigo-600 transition-all duration-200 hover:-translate-y-0.5 shadow-lg shadow-indigo-500/30"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => toggleDone(task.id)}
+                        className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 hover:-translate-y-0.5 ${
+                          task.done
+                            ? "bg-yellow-500 text-white hover:bg-yellow-600 shadow-lg shadow-yellow-500/30"
+                            : "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30"
+                        }`}
+                      >
+                        {task.done ? "↩️ Undo" : "✅ Done"}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(task.id)}
+                        className="px-4 py-2 rounded-xl font-medium text-sm bg-red-500 text-white hover:bg-red-600 transition-all duration-200 hover:-translate-y-0.5 shadow-lg shadow-red-500/30"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Progress Bar for Overdue Tasks */}
-                {isOverdue(task.deadline) && !task.done && (
+                {isOverdue(task.deadline) && !task.done && editingTask !== task.id && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
                     <div className="flex items-center gap-2 text-red-700 text-sm font-medium">
                       <span>⚠️</span>
